@@ -237,8 +237,146 @@ export function initHero3D(mount) {
         g.add(sep)
       }
 
-      bayMeshes.push({ mesh: bay, edgesMat, tech, hovering: false })
+      bayMeshes.push({ mesh: bay, edgesMat, tech, hovering: false, row })
     })
+
+    // ── A: Ventilation slots ─────────────────────────────────────────────
+    const ventMat = new THREE.MeshStandardMaterial({ color: 0x060606, roughness: 0.95 })
+    // Top vents (between status panel and bezel)
+    for (let v = 0; v < 3; v++) {
+      const vent = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.018, 0.025), ventMat)
+      vent.position.set(0.08, 3.84 + v * 0.038, 0.715)
+      g.add(vent)
+    }
+    // Bottom vents (below all content)
+    for (let v = 0; v < 3; v++) {
+      const vent = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.018, 0.025), ventMat)
+      vent.position.set(0.08, 0.022 + v * 0.038, 0.715)
+      g.add(vent)
+    }
+
+    // ── B: Power button + LED ring ────────────────────────────────────────
+    const pwrBtn = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.042, 0.042, 0.018, 16),
+      new THREE.MeshStandardMaterial({ color: 0x1e1e1e, roughness: 0.2, metalness: 0.8 })
+    )
+    pwrBtn.rotation.x = Math.PI / 2
+    pwrBtn.position.set(1.40, 0.14, 0.716)
+    g.add(pwrBtn)
+    const pwrRingMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(ACCENT) })
+    const pwrRing = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.006, 6, 24), pwrRingMat)
+    pwrRing.rotation.x = Math.PI / 2
+    pwrRing.position.set(1.40, 0.14, 0.718)
+    g.add(pwrRing)
+
+    // ── C: Status display panel ──────────────────────────────────────────
+    const statusCv = document.createElement('canvas')
+    statusCv.width = 512; statusCv.height = 64
+    const statusCtx = statusCv.getContext('2d')
+    const statusTex = new THREE.CanvasTexture(statusCv)
+    statusTex.colorSpace = THREE.SRGBColorSpace
+    function drawStatus() {
+      const up   = `${String(Math.floor(Math.random() * 99 + 1)).padStart(2, '0')}d ${String(Math.floor(Math.random() * 24)).padStart(2, '0')}h`
+      const temp = `${(52 + Math.random() * 22).toFixed(0)}°C`
+      const cpu  = `CPU ${(8 + Math.random() * 64).toFixed(0)}%`
+      statusCtx.fillStyle = '#050505'
+      statusCtx.fillRect(0, 0, 512, 64)
+      statusCtx.font = 'bold 22px monospace'
+      statusCtx.fillStyle = '#3CD96E'
+      statusCtx.fillText(`UP ${up}  T:${temp}  ${cpu}`, 14, 42)
+      statusTex.needsUpdate = true
+    }
+    drawStatus()
+    const statusPanel = new THREE.Mesh(
+      new THREE.BoxGeometry(0.96, 0.10, 0.008),
+      new THREE.MeshBasicMaterial({ map: statusTex })
+    )
+    statusPanel.position.set(0.24, 3.74, 0.72)
+    g.add(statusPanel)
+    let lastStatusUpdate = 0
+
+    // ── D: Rack ears with mounting screws ─────────────────────────────────
+    const earMat    = new THREE.MeshStandardMaterial({ color: 0x131313, roughness: 0.5, metalness: 0.6 })
+    const screwMat  = new THREE.MeshStandardMaterial({ color: 0x2c2c2c, roughness: 0.3, metalness: 0.9 })
+    const mScrewGeo = new THREE.CylinderGeometry(0.016, 0.016, 0.014, 6)
+    ;[-1.74, 1.74].forEach(ex => {
+      const ear = new THREE.Mesh(new THREE.BoxGeometry(0.14, 4.02, 0.12), earMat)
+      ear.position.set(ex, 2.0, 0.64)
+      g.add(ear)
+      ;[0.30, 3.72].forEach(sy => {
+        const sc = new THREE.Mesh(mScrewGeo, screwMat)
+        sc.rotation.x = Math.PI / 2
+        sc.position.set(ex, sy, 0.71)
+        g.add(sc)
+      })
+    })
+
+    // ── E: Port strip (bottom-right) ──────────────────────────────────────
+    const portFaceMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.8 })
+    const portHoleMat = new THREE.MeshStandardMaterial({ color: 0x030303, roughness: 1.0 })
+    ;[0.92, 1.06].forEach(px => {
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.086, 0.05, 0.018), portFaceMat)
+      body.position.set(px, 0.20, 0.722)
+      g.add(body)
+      const slot = new THREE.Mesh(new THREE.BoxGeometry(0.060, 0.028, 0.016), portHoleMat)
+      slot.position.set(px, 0.20, 0.728)
+      g.add(slot)
+    })
+    const rj = new THREE.Mesh(new THREE.BoxGeometry(0.082, 0.064, 0.018), portFaceMat)
+    rj.position.set(1.22, 0.20, 0.722)
+    g.add(rj)
+
+    // ── F: Corner bezel screws ────────────────────────────────────────────
+    const bezelScrewGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.016, 6)
+    ;[[-1.52, 3.92], [1.52, 3.92], [-1.52, 0.08], [1.52, 0.08]].forEach(([cx, cy]) => {
+      const sc = new THREE.Mesh(bezelScrewGeo, screwMat)
+      sc.rotation.x = Math.PI / 2
+      sc.position.set(cx, cy, 0.716)
+      g.add(sc)
+    })
+
+    // ── G: Per-row activity LEDs (right-side accent column) ───────────────
+    const rowLEDs = []
+    rowY.forEach((ry, ri) => {
+      const rled = new THREE.Mesh(
+        new THREE.SphereGeometry(0.016, 6, 6),
+        new THREE.MeshBasicMaterial({ color: new THREE.Color('#3CD96E') })
+      )
+      rled.position.set(1.34, ry, 0.77)
+      g.add(rled)
+      rowLEDs.push(rled)
+    })
+
+    // ── H: Cable bundles (bottom rear) ────────────────────────────────────
+    const cableMat = new THREE.MeshStandardMaterial({ color: 0x181818, roughness: 0.9 })
+    ;[-0.82, -0.22, 0.38, 0.92].forEach((cx, ci) => {
+      const cable = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.028 + ci * 0.005, 0.028 + ci * 0.005, 0.9, 8),
+        cableMat
+      )
+      cable.position.set(cx, -0.12, -0.34)
+      g.add(cable)
+    })
+
+    // ── I: Model plate ────────────────────────────────────────────────────
+    const plateCv = document.createElement('canvas')
+    plateCv.width = 512; plateCv.height = 64
+    const plateCtx = plateCv.getContext('2d')
+    plateCtx.fillStyle = '#0d0d0d'
+    plateCtx.fillRect(0, 0, 512, 64)
+    plateCtx.font = 'bold 20px monospace'
+    plateCtx.fillStyle = '#FF6B1A'
+    plateCtx.fillText('DS-4800', 14, 40)
+    plateCtx.fillStyle = '#4a4a4a'
+    plateCtx.fillText('· REV.2 | SN: DR-2024', 148, 40)
+    const plateTex = new THREE.CanvasTexture(plateCv)
+    plateTex.colorSpace = THREE.SRGBColorSpace
+    const modelPlate = new THREE.Mesh(
+      new THREE.BoxGeometry(0.72, 0.076, 0.008),
+      new THREE.MeshBasicMaterial({ map: plateTex })
+    )
+    modelPlate.position.set(-0.30, 0.10, 0.722)
+    g.add(modelPlate)
 
     // Top accent line
     const topLine = new THREE.Mesh(
@@ -259,7 +397,7 @@ export function initHero3D(mount) {
 
     g.userData.update = (t) => {
       g.rotation.y = Math.sin(t * 0.15) * 0.2
-      // LED blink
+      // Column LED blink
       leds.forEach(led => {
         const b = (Math.sin(t * led.userData.speed + led.userData.phase) + 1) * 0.5
         const c = led.userData.baseColor
@@ -272,6 +410,19 @@ export function initHero3D(mount) {
         b.mesh.position.z += (tz  - b.mesh.position.z)   * 0.14
         b.mesh.scale.x    += (tsc - b.mesh.scale.x)      * 0.14
         b.mesh.scale.y    += (tsc - b.mesh.scale.y)      * 0.14
+      })
+      // B: Power ring pulse
+      const pwr = (Math.sin(t * 2.4) + 1) * 0.5
+      const pwrI = 0.3 + pwr * 0.7
+      pwrRingMat.color.setRGB(1.0 * pwrI, 0.42 * pwrI, 0.10 * pwrI)
+      // C: Status panel refresh every 6 s
+      if (t - lastStatusUpdate > 6) { lastStatusUpdate = t; drawStatus() }
+      // G: Row activity LEDs — blink faster when any bay in that row is hovered
+      rowLEDs.forEach((rled, ri) => {
+        const rowHot = bayMeshes.some(b => b.hovering && b.row === ri)
+        const spd = rowHot ? 9 : 1.8
+        const bv  = (Math.sin(t * spd + ri * 1.1) + 1) * 0.5
+        rled.material.color.setRGB(0.235 * bv, 0.85 * bv, 0.431 * bv)
       })
     }
   }
