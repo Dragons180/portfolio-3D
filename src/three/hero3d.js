@@ -5,6 +5,7 @@ const ACCENT  = '#FF6B1A'
 const ACCENT2 = '#FFB068'
 const INK     = '#F2F0EA'
 const BG      = '#0A0A0A'
+const D       = 7.5  // orthographic half-size
 
 export function initHero3D(mount) {
   const w = () => mount.clientWidth
@@ -12,10 +13,11 @@ export function initHero3D(mount) {
 
   const scene = new THREE.Scene()
   scene.background = new THREE.Color(BG)
-  scene.fog = new THREE.Fog(BG, 18, 38)
 
-  const camera = new THREE.PerspectiveCamera(42, w() / h(), 0.1, 100)
-  camera.position.set(0, 0.3, 8)
+  const aspect = w() / h()
+  const camera = new THREE.OrthographicCamera(-D * aspect, D * aspect, D, -D, 0.1, 200)
+  camera.position.set(14, 12, 14)
+  camera.lookAt(0, 0, 0)
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -23,16 +25,24 @@ export function initHero3D(mount) {
   renderer.outputColorSpace = THREE.SRGBColorSpace
   mount.appendChild(renderer.domElement)
 
-  scene.add(new THREE.AmbientLight(0xffffff, 0.4))
-  const dir = new THREE.DirectionalLight(0xffffff, 0.7)
+  scene.add(new THREE.AmbientLight(0xffffff, 0.45))
+  const dir = new THREE.DirectionalLight(0xffffff, 0.6)
   dir.position.set(5, 8, 5)
   scene.add(dir)
-  const p1 = new THREE.PointLight(ACCENT, 0.8, 20)
+  const p1 = new THREE.PointLight(ACCENT, 0.7, 20)
   p1.position.set(-3, 3, 3)
   scene.add(p1)
-  const p2 = new THREE.PointLight(ACCENT2, 0.5, 20)
+  const p2 = new THREE.PointLight(ACCENT2, 0.4, 20)
   p2.position.set(4, -2, 2)
   scene.add(p2)
+  // Warm desk light (over back wall area)
+  const deskLight = new THREE.PointLight(0xffe4c4, 1.2, 8)
+  deskLight.position.set(1, 4, -2)
+  scene.add(deskLight)
+  // Cool rack accent
+  const rackLight = new THREE.PointLight(0x4488ff, 0.5, 6)
+  rackLight.position.set(-2, 3, 0)
+  scene.add(rackLight)
 
   const variants = { rack: new THREE.Group(), logos: new THREE.Group(), arch: new THREE.Group() }
   Object.values(variants).forEach(g => { g.visible = false; scene.add(g) })
@@ -46,7 +56,7 @@ export function initHero3D(mount) {
   function playPress()   { sndPress.currentTime   = 0; sndPress.play().catch(() => {}) }
   function playRelease() { sndRelease.currentTime = 0; sndRelease.play().catch(() => {}) }
 
-  // ── Tooltip (fixed to viewport — avoids any containment/overflow issues) ──────
+  // ── Tooltip ──────────────────────────────────────────────────────────────────
   const tooltip = document.createElement('div')
   Object.assign(tooltip.style, {
     position: 'fixed', pointerEvents: 'none', zIndex: '9999', display: 'none',
@@ -86,7 +96,6 @@ export function initHero3D(mount) {
     const vh  = window.innerHeight
     const ttw = tooltip.offsetWidth  || 196
     const tth = tooltip.offsetHeight || 110
-    // Centered above the bay's projected screen position (updated each frame)
     const bvpX = activeBay.mesh.userData.vpX ?? vw * 0.75
     const bvpY = activeBay.mesh.userData.vpY ?? vh * 0.5
     let tx = bvpX - ttw * 0.5
@@ -97,10 +106,10 @@ export function initHero3D(mount) {
     tooltip.style.top  = ty + 'px'
   }
 
-  // ── Bay mesh list (populated by buildRack) ───────────────────────────────────
-  const bayMeshes = [] // { mesh, edgesMat, tech, hovering }
+  // ── Bay mesh list ────────────────────────────────────────────────────────────
+  const bayMeshes = []
 
-  // ── Texture helpers ─────────────────────────────────────────────────────────
+  // ── Texture helpers ──────────────────────────────────────────────────────────
   function makeSvgUrl(tech) {
     const inner = tech.svg.replace(/\$C/g, tech.color)
     const wrap  = tech.svgStroke
@@ -111,7 +120,6 @@ export function initHero3D(mount) {
     )
   }
 
-  // Bay face aspect 0.80 / 0.72 ≈ 1.11
   const TW = 256, TH = 230
 
   function makeLogoTex(tech) {
@@ -134,11 +142,243 @@ export function initHero3D(mount) {
     return tex
   }
 
-  // ── Variant 1: Server rack ──────────────────────────────────────────────────
+  // ── Room ─────────────────────────────────────────────────────────────────────
+  function buildRoom(g) {
+    // Square room: all faces are 6×6
+    const N = 6
+    const H = N  // height = width = depth
+    const half = N / 2  // 3
+
+    const wallMat  = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.85, side: THREE.FrontSide })
+    const backMat  = new THREE.MeshStandardMaterial({ color: 0x2e2e2e, roughness: 0.9,  side: THREE.FrontSide })
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x5a3a1a, roughness: 0.88, metalness: 0.04 })
+    const skirtMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.7 })
+
+    // Floor: N×N square at y=0
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(N, N), floorMat)
+    floor.rotation.x = -Math.PI / 2
+    floor.position.set(0, 0, 0)
+    g.add(floor)
+
+    // Left wall: N×N at x=-half, facing +x
+    const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(N, H), wallMat)
+    leftWall.rotation.y = Math.PI / 2
+    leftWall.position.set(-half, H / 2, 0)
+    g.add(leftWall)
+
+    // Back wall: N×N at z=-half, facing +z
+    const backWall = new THREE.Mesh(new THREE.PlaneGeometry(N, H), backMat)
+    backWall.position.set(0, H / 2, -half)
+    g.add(backWall)
+
+    // Right wall: N×N at x=+half, facing -x
+    const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(N, H), wallMat)
+    rightWall.rotation.y = -Math.PI / 2
+    rightWall.position.set(half, H / 2, 0)
+    g.add(rightWall)
+
+    // Skirting boards
+    const skirtH = new THREE.BoxGeometry(N, 0.07, 0.04)
+    const skirtV = new THREE.BoxGeometry(0.04, 0.07, N)
+    ;[
+      { geo: skirtH, pos: [0,         0.035, -half + 0.02] },
+      { geo: skirtV, pos: [-half + 0.02, 0.035, 0]         },
+      { geo: skirtV, pos: [ half - 0.02, 0.035, 0]         },
+    ].forEach(({ geo, pos }) => {
+      const m = new THREE.Mesh(geo, skirtMat)
+      m.position.set(...pos)
+      g.add(m)
+    })
+  }
+
+  // ── Desk + chair + monitors ───────────────────────────────────────────────────
+  // Room is 6×6. Back wall at z=-3. Desk center against back wall.
+  function buildDesk(g) {
+    const deskWoodMat = new THREE.MeshStandardMaterial({ color: 0x8B6433, roughness: 0.75 })
+    const legMat      = new THREE.MeshStandardMaterial({ color: 0x5a3a10, roughness: 0.8 })
+    const chairMat    = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6 })
+    const monFrameMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3, metalness: 0.6 })
+    const towerMat    = new THREE.MeshStandardMaterial({ color: 0x0e0e0e, roughness: 0.4, metalness: 0.5 })
+
+    // Desk surface: 3.0 wide × 1.2 deep, against back wall (z=-3)
+    // Back edge at z=-3, front at z=-1.8, center at z=-2.4
+    const DX = 1.0   // desk center X (right half of room)
+    const DZ = -2.4  // desk center Z
+    const desk = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.1, 1.2), deskWoodMat)
+    desk.position.set(DX, 1.1, DZ)
+    g.add(desk)
+
+    // Desk legs (4)
+    const legGeo = new THREE.BoxGeometry(0.09, 1.1, 0.09)
+    ;[[-1.3, -0.5], [1.3, -0.5], [-1.3, 0.5], [1.3, 0.5]].forEach(([lx, lz]) => {
+      const leg = new THREE.Mesh(legGeo, legMat)
+      leg.position.set(DX + lx, 0.55, DZ + lz)
+      g.add(leg)
+    })
+
+    // ── Chair — tucked under desk, backrest toward viewer ────────────
+    // Desk front edge at z=-1.8; seat center tucked to z=-2.05 (under desk)
+    const SX = DX, SZ = -2.05
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.09, 1.0), chairMat)
+    seat.position.set(SX, 0.76, SZ)
+    g.add(seat)
+
+    // Backrest on the viewer-facing side (+z from seat)
+    const back = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.9, 0.08), chairMat)
+    back.position.set(SX, 1.28, SZ + 0.48)
+    g.add(back)
+
+    // Chair stem
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.5, 8), chairMat)
+    stem.position.set(SX, 0.44, SZ)
+    g.add(stem)
+
+    // Chair base (5 arms + wheels)
+    const armMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.7 })
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.8 })
+    for (let i = 0; i < 5; i++) {
+      const angle = (i / 5) * Math.PI * 2
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.028, 0.055), armMat)
+      arm.position.set(SX + Math.cos(angle) * 0.22, 0.16, SZ + Math.sin(angle) * 0.22)
+      arm.rotation.y = -angle
+      g.add(arm)
+      const wheel = new THREE.Mesh(new THREE.SphereGeometry(0.048, 8, 8), wheelMat)
+      wheel.position.set(SX + Math.cos(angle) * 0.42, 0.09, SZ + Math.sin(angle) * 0.42)
+      g.add(wheel)
+    }
+
+    // ── PC Tower — on floor, right of desk ────────────────────────────
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.95, 0.25), towerMat)
+    tower.position.set(2.6, 0.475, -2.3)
+    g.add(tower)
+
+    const towerLedMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(ACCENT) })
+    const towerLed = new THREE.Mesh(new THREE.SphereGeometry(0.018, 8, 8), towerLedMat)
+    towerLed.position.set(2.76, 0.88, -2.17)
+    g.add(towerLed)
+
+    const ventMat2 = new THREE.MeshStandardMaterial({ color: 0x060606, roughness: 1.0 })
+    for (let v = 0; v < 4; v++) {
+      const vent = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.016, 0.012), ventMat2)
+      vent.position.set(2.76, 0.4 + v * 0.065, -2.17)
+      g.add(vent)
+    }
+
+    // ── Monitor screen canvas helper ──────────────────────────────────
+    function makeScreenTex(lines, bg = '#050f05', fg = '#3CD96E') {
+      const cv = document.createElement('canvas')
+      cv.width = 512; cv.height = 320
+      const ctx = cv.getContext('2d')
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, 512, 320)
+      ctx.font = '14px monospace'; ctx.fillStyle = fg
+      lines.forEach((line, i) => ctx.fillText(line, 12, 24 + i * 18))
+      const tex = new THREE.CanvasTexture(cv)
+      tex.colorSpace = THREE.SRGBColorSpace
+      return tex
+    }
+
+    const mainScreenTex = makeScreenTex([
+      'public class App {',
+      '  @SpringBootApplication',
+      '  public static void main(',
+      '    String[] args) {',
+      '    SpringApplication',
+      '      .run(App.class, args);',
+      '  }',
+      '}',
+      '',
+      '> BUILD SUCCESS [0.8s]',
+      '> Started App in 1.42s',
+    ])
+
+    const sideScreenTex = makeScreenTex([
+      'docker ps',
+      'NAME       STATUS',
+      'redis      Up 3h',
+      'mongo      Up 3h',
+      'rabbit     Up 1h',
+      '',
+      'CPU  12%  ████░░░',
+      'MEM  68%  ██████░',
+    ], '#050510', '#5DADE2')
+
+    function addMonitor(grpParent, px, py, pz, rotY, screenTex, sw, sh) {
+      const grp = new THREE.Group()
+      grp.position.set(px, py, pz)
+      grp.rotation.y = rotY
+
+      grp.add(new THREE.Mesh(new THREE.BoxGeometry(sw + 0.1, sh + 0.09, 0.065), monFrameMat))
+
+      const screenMats = [
+        monFrameMat, monFrameMat, monFrameMat, monFrameMat,
+        new THREE.MeshBasicMaterial({ map: screenTex }),
+        monFrameMat,
+      ]
+      const screen = new THREE.Mesh(new THREE.BoxGeometry(sw, sh, 0.01), screenMats)
+      screen.position.z = 0.038
+      grp.add(screen)
+
+      const stem = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.3, 0.07), monFrameMat)
+      stem.position.y = -(sh / 2 + 0.15)
+      grp.add(stem)
+
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.035, 0.26), monFrameMat)
+      base.position.y = -(sh / 2 + 0.3 + 0.018)
+      grp.add(base)
+
+      grpParent.add(grp)
+      return grp
+    }
+
+    // Fan arrangement — lateral inner edges pivot at central's outer edges.
+    // Central: sw=1.05, center at DX=1.0 → left edge x=0.475, right edge x=1.525, z=-2.5
+    // Pivot angle 35° (0.611 rad). Formulas:
+    //   cx = edge_x ∓ (sw/2)*cos(θ),  cz = edge_z + (sw/2)*sin(±θ)
+    const THETA = 0.611  // 35°
+    const SW2   = 0.82 / 2  // 0.41
+    const pyC = 1.155 + 0.375 + 0.318  // central  (sh=0.75)
+    const pyS = 1.155 + 0.325 + 0.318  // side     (sh=0.65)
+    addMonitor(g, DX,                             pyC, -2.5,                         0,      mainScreenTex, 1.05, 0.75)
+    addMonitor(g, 0.475 - SW2 * Math.cos(THETA), pyS, -2.5 + SW2 * Math.sin(THETA),  THETA, sideScreenTex, 0.82, 0.65)
+    addMonitor(g, 1.525 + SW2 * Math.cos(THETA), pyS, -2.5 + SW2 * Math.sin(THETA), -THETA, sideScreenTex, 0.82, 0.65)
+
+    // Keyboard
+    const kb = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.035, 0.38),
+      new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.5, metalness: 0.3 }))
+    kb.position.set(DX - 0.2, 1.16, DZ + 0.35)
+    g.add(kb)
+
+    // Mouse (to the right of the keyboard)
+    const mouseMat = new THREE.MeshStandardMaterial({ color: 0x242424, roughness: 0.4, metalness: 0.3 })
+    const mouseBody = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.05, 0.21), mouseMat)
+    mouseBody.position.set(DX + 0.7, 1.178, DZ + 0.35)
+    g.add(mouseBody)
+    // Scroll wheel
+    const scrollMat = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.6 })
+    const scroll = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.04, 8), scrollMat)
+    scroll.rotation.z = Math.PI / 2
+    scroll.position.set(DX + 0.7, 1.205, DZ + 0.3)
+    g.add(scroll)
+
+    g.userData.towerLedMat = towerLedMat
+  }
+
+  // ── Variant 1: Server rack ────────────────────────────────────────────────────
   function buildRack() {
     const g = variants.rack
-    g.position.set(0, -1, 0)
-    g.scale.setScalar(0.65)
+
+    buildRoom(g)
+    buildDesk(g)
+
+    // Rack group positioned against left wall, rotated to face into room (+X)
+    g.position.set(0, 0, 0)
+    g.scale.setScalar(1)
+
+    const rackGroup = new THREE.Group()
+    rackGroup.position.set(-2.5, 0, 0)
+    rackGroup.rotation.y = Math.PI / 2
+    rackGroup.scale.setScalar(0.65)
+    g.add(rackGroup)
 
     // Chassis
     const frame = new THREE.Mesh(
@@ -146,7 +386,7 @@ export function initHero3D(mount) {
       new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.6, metalness: 0.3 })
     )
     frame.position.set(0, 2.0, 0)
-    g.add(frame)
+    rackGroup.add(frame)
 
     // Bezel top ridge
     const bezel = new THREE.Mesh(
@@ -154,22 +394,22 @@ export function initHero3D(mount) {
       new THREE.MeshStandardMaterial({ color: 0x262626, roughness: 0.4, metalness: 0.6 })
     )
     bezel.position.set(0, 3.96, 0.73)
-    g.add(bezel)
+    rackGroup.add(bezel)
 
-    // ── LED column ───────────────────────────────────────────────────
+    // LED column
     const ledBacking = new THREE.Mesh(
       new THREE.BoxGeometry(0.20, 3.60, 0.04),
       new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.9 })
     )
     ledBacking.position.set(-1.38, 2.0, 0.74)
-    g.add(ledBacking)
+    rackGroup.add(ledBacking)
 
     const rail = new THREE.Mesh(
       new THREE.BoxGeometry(0.02, 3.60, 0.05),
       new THREE.MeshStandardMaterial({ color: 0x303030, roughness: 0.5, metalness: 0.8 })
     )
     rail.position.set(-1.27, 2.0, 0.74)
-    g.add(rail)
+    rackGroup.add(rail)
 
     const ledColorDefs = [
       '#3CD96E','#3CD96E','#3CD96E', ACCENT2,
@@ -187,20 +427,17 @@ export function initHero3D(mount) {
       led.userData.baseColor = new THREE.Color(col)
       led.userData.speed = 0.7 + Math.random() * 3.2
       led.userData.phase = Math.random() * Math.PI * 2
-      g.add(led); leds.push(led)
+      rackGroup.add(led); leds.push(led)
     }
 
-    // ── Bay grid: 4 rows × 3 cols ────────────────────────────────────
+    // Bay grid: 4 rows × 3 cols
     const colX = [-0.78, 0.08, 0.94]
     const rowY = [0.55, 1.42, 2.28, 3.14]
     const BAY_W = 0.80, BAY_H = 0.72, BAY_D = 0.22
-    const BAY_Z = 0.75  // center z — back half recessed in chassis, front half protruding
+    const BAY_Z = 0.75
 
-    // Shared materials for bay sides (reused across all bays)
     const sideMat = new THREE.MeshStandardMaterial({ color: 0x1c1c1c, roughness: 0.3, metalness: 0.7 })
     const backMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.5, metalness: 0.4 })
-
-    // Shared edges geometry (same box for all bays, scaled up slightly)
     const edgesGeo = new THREE.EdgesGeometry(
       new THREE.BoxGeometry(BAY_W + 0.01, BAY_H + 0.01, BAY_D + 0.01)
     )
@@ -209,9 +446,7 @@ export function initHero3D(mount) {
       const col = idx % 3
       const row = Math.floor(idx / 3)
 
-      // Per-face materials: sides share material, +Z face gets the logo texture
       const faceMat  = new THREE.MeshBasicMaterial({ map: makeLogoTex(tech), color: 0xffffff })
-      // BoxGeometry face order: +X, -X, +Y, -Y, +Z (front), -Z (back)
       const bayMats  = [sideMat, sideMat, sideMat, sideMat, faceMat, backMat]
 
       const bay = new THREE.Mesh(new THREE.BoxGeometry(BAY_W, BAY_H, BAY_D), bayMats)
@@ -220,56 +455,52 @@ export function initHero3D(mount) {
       bay.userData.hoverZ   = BAY_Z + 0.28
       bay.userData.baseScX  = 1.0
       bay.userData.hoverScX = 1.04
-      g.add(bay)
+      rackGroup.add(bay)
 
-      // Edges outline — child of bay so it moves with it
       const edgesMat = new THREE.LineBasicMaterial({ color: 0x2e2e2e })
       const edges = new THREE.LineSegments(edgesGeo, edgesMat)
       bay.add(edges)
 
-      // Row separator rail (once per row boundary)
       if (row < 3 && col === 0) {
         const sep = new THREE.Mesh(
           new THREE.BoxGeometry(2.76, 0.022, 0.03),
           new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.5, metalness: 0.7 })
         )
         sep.position.set(0.08, rowY[row] + BAY_H * 0.5 + 0.011, 0.74)
-        g.add(sep)
+        rackGroup.add(sep)
       }
 
       bayMeshes.push({ mesh: bay, edgesMat, tech, hovering: false, row })
     })
 
-    // ── A: Ventilation slots ─────────────────────────────────────────────
+    // Ventilation slots
     const ventMat = new THREE.MeshStandardMaterial({ color: 0x060606, roughness: 0.95 })
-    // Top vents (between status panel and bezel)
     for (let v = 0; v < 3; v++) {
       const vent = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.018, 0.025), ventMat)
       vent.position.set(0.08, 3.84 + v * 0.038, 0.715)
-      g.add(vent)
+      rackGroup.add(vent)
     }
-    // Bottom vents (below all content)
     for (let v = 0; v < 3; v++) {
       const vent = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.018, 0.025), ventMat)
       vent.position.set(0.08, 0.022 + v * 0.038, 0.715)
-      g.add(vent)
+      rackGroup.add(vent)
     }
 
-    // ── B: Power button + LED ring ────────────────────────────────────────
+    // Power button + LED ring
     const pwrBtn = new THREE.Mesh(
       new THREE.CylinderGeometry(0.042, 0.042, 0.018, 16),
       new THREE.MeshStandardMaterial({ color: 0x1e1e1e, roughness: 0.2, metalness: 0.8 })
     )
     pwrBtn.rotation.x = Math.PI / 2
     pwrBtn.position.set(1.40, 0.14, 0.716)
-    g.add(pwrBtn)
+    rackGroup.add(pwrBtn)
     const pwrRingMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(ACCENT) })
     const pwrRing = new THREE.Mesh(new THREE.TorusGeometry(0.052, 0.006, 6, 24), pwrRingMat)
     pwrRing.rotation.x = Math.PI / 2
     pwrRing.position.set(1.40, 0.14, 0.718)
-    g.add(pwrRing)
+    rackGroup.add(pwrRing)
 
-    // ── C: Status display panel ──────────────────────────────────────────
+    // Status display panel
     const statusCv = document.createElement('canvas')
     statusCv.width = 512; statusCv.height = 64
     const statusCtx = statusCv.getContext('2d')
@@ -292,50 +523,50 @@ export function initHero3D(mount) {
       new THREE.MeshBasicMaterial({ map: statusTex })
     )
     statusPanel.position.set(0.24, 3.74, 0.72)
-    g.add(statusPanel)
+    rackGroup.add(statusPanel)
     let lastStatusUpdate = 0
 
-    // ── D: Rack ears with mounting screws ─────────────────────────────────
+    // Rack ears with screws
     const earMat    = new THREE.MeshStandardMaterial({ color: 0x131313, roughness: 0.5, metalness: 0.6 })
     const screwMat  = new THREE.MeshStandardMaterial({ color: 0x2c2c2c, roughness: 0.3, metalness: 0.9 })
     const mScrewGeo = new THREE.CylinderGeometry(0.016, 0.016, 0.014, 6)
     ;[-1.74, 1.74].forEach(ex => {
       const ear = new THREE.Mesh(new THREE.BoxGeometry(0.14, 4.02, 0.12), earMat)
       ear.position.set(ex, 2.0, 0.64)
-      g.add(ear)
+      rackGroup.add(ear)
       ;[0.30, 3.72].forEach(sy => {
         const sc = new THREE.Mesh(mScrewGeo, screwMat)
         sc.rotation.x = Math.PI / 2
         sc.position.set(ex, sy, 0.71)
-        g.add(sc)
+        rackGroup.add(sc)
       })
     })
 
-    // ── E: Port strip (bottom-right) ──────────────────────────────────────
+    // Port strip
     const portFaceMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.8 })
     const portHoleMat = new THREE.MeshStandardMaterial({ color: 0x030303, roughness: 1.0 })
     ;[0.92, 1.06].forEach(px => {
       const body = new THREE.Mesh(new THREE.BoxGeometry(0.086, 0.05, 0.018), portFaceMat)
       body.position.set(px, 0.20, 0.722)
-      g.add(body)
+      rackGroup.add(body)
       const slot = new THREE.Mesh(new THREE.BoxGeometry(0.060, 0.028, 0.016), portHoleMat)
       slot.position.set(px, 0.20, 0.728)
-      g.add(slot)
+      rackGroup.add(slot)
     })
     const rj = new THREE.Mesh(new THREE.BoxGeometry(0.082, 0.064, 0.018), portFaceMat)
     rj.position.set(1.22, 0.20, 0.722)
-    g.add(rj)
+    rackGroup.add(rj)
 
-    // ── F: Corner bezel screws ────────────────────────────────────────────
+    // Corner bezel screws
     const bezelScrewGeo = new THREE.CylinderGeometry(0.018, 0.018, 0.016, 6)
     ;[[-1.52, 3.92], [1.52, 3.92], [-1.52, 0.08], [1.52, 0.08]].forEach(([cx, cy]) => {
       const sc = new THREE.Mesh(bezelScrewGeo, screwMat)
       sc.rotation.x = Math.PI / 2
       sc.position.set(cx, cy, 0.716)
-      g.add(sc)
+      rackGroup.add(sc)
     })
 
-    // ── G: Per-row activity LEDs (right-side accent column) ───────────────
+    // Per-row activity LEDs
     const rowLEDs = []
     rowY.forEach((ry, ri) => {
       const rled = new THREE.Mesh(
@@ -343,11 +574,11 @@ export function initHero3D(mount) {
         new THREE.MeshBasicMaterial({ color: new THREE.Color('#3CD96E') })
       )
       rled.position.set(1.34, ry, 0.77)
-      g.add(rled)
+      rackGroup.add(rled)
       rowLEDs.push(rled)
     })
 
-    // ── H: Cable bundles (bottom rear) ────────────────────────────────────
+    // Cable bundles
     const cableMat = new THREE.MeshStandardMaterial({ color: 0x181818, roughness: 0.9 })
     ;[-0.82, -0.22, 0.38, 0.92].forEach((cx, ci) => {
       const cable = new THREE.Mesh(
@@ -355,10 +586,10 @@ export function initHero3D(mount) {
         cableMat
       )
       cable.position.set(cx, -0.12, -0.34)
-      g.add(cable)
+      rackGroup.add(cable)
     })
 
-    // ── I: Model plate ────────────────────────────────────────────────────
+    // Model plate
     const plateCv = document.createElement('canvas')
     plateCv.width = 512; plateCv.height = 64
     const plateCtx = plateCv.getContext('2d')
@@ -376,7 +607,7 @@ export function initHero3D(mount) {
       new THREE.MeshBasicMaterial({ map: plateTex })
     )
     modelPlate.position.set(-0.30, 0.10, 0.722)
-    g.add(modelPlate)
+    rackGroup.add(modelPlate)
 
     // Top accent line
     const topLine = new THREE.Mesh(
@@ -384,26 +615,19 @@ export function initHero3D(mount) {
       new THREE.MeshBasicMaterial({ color: ACCENT })
     )
     topLine.position.set(0.08, 3.56, 0.74)
-    g.add(topLine)
+    rackGroup.add(topLine)
 
-    // Floor
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(40, 40),
-      new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.3, metalness: 0.7 })
-    )
-    floor.rotation.x = -Math.PI / 2; floor.position.y = -0.5; g.add(floor)
-    const grid = new THREE.GridHelper(40, 40, 0x1a1a1a, 0x141414)
-    grid.position.y = -0.49; g.add(grid)
+    // Save reference for overlay projection
+    g.userData.rackGroup = rackGroup
 
     g.userData.update = (t) => {
-      g.rotation.y = Math.sin(t * 0.15) * 0.2
       // Column LED blink
       leds.forEach(led => {
         const b = (Math.sin(t * led.userData.speed + led.userData.phase) + 1) * 0.5
         const c = led.userData.baseColor
         led.material.color.setRGB(c.r * b, c.g * b, c.b * b)
       })
-      // Bay hover animation — z push + subtle scale
+      // Bay hover animation
       bayMeshes.forEach(b => {
         const tz  = b.hovering ? b.mesh.userData.hoverZ   : b.mesh.userData.baseZ
         const tsc = b.hovering ? b.mesh.userData.hoverScX : b.mesh.userData.baseScX
@@ -411,13 +635,17 @@ export function initHero3D(mount) {
         b.mesh.scale.x    += (tsc - b.mesh.scale.x)      * 0.14
         b.mesh.scale.y    += (tsc - b.mesh.scale.y)      * 0.14
       })
-      // B: Power ring pulse
+      // Power ring pulse
       const pwr = (Math.sin(t * 2.4) + 1) * 0.5
       const pwrI = 0.3 + pwr * 0.7
       pwrRingMat.color.setRGB(1.0 * pwrI, 0.42 * pwrI, 0.10 * pwrI)
-      // C: Status panel refresh every 6 s
+      // Tower LED pulse (same rhythm)
+      if (g.userData.towerLedMat) {
+        g.userData.towerLedMat.color.setRGB(1.0 * pwrI, 0.42 * pwrI, 0.10 * pwrI)
+      }
+      // Status panel refresh every 6 s
       if (t - lastStatusUpdate > 6) { lastStatusUpdate = t; drawStatus() }
-      // G: Row activity LEDs — blink faster when any bay in that row is hovered
+      // Row activity LEDs
       rowLEDs.forEach((rled, ri) => {
         const rowHot = bayMeshes.some(b => b.hovering && b.row === ri)
         const spd = rowHot ? 9 : 1.8
@@ -427,7 +655,7 @@ export function initHero3D(mount) {
     }
   }
 
-  // ── Variant 2: Tech labels ──────────────────────────────────────────────────
+  // ── Variant 2: Tech labels ───────────────────────────────────────────────────
   function makeTextSprite(text, color) {
     const canvas = document.createElement('canvas')
     canvas.width = 2048; canvas.height = 512
@@ -491,7 +719,7 @@ export function initHero3D(mount) {
     }
   }
 
-  // ── Variant 3: Microservices arch ───────────────────────────────────────────
+  // ── Variant 3: Microservices arch ────────────────────────────────────────────
   function buildArch() {
     const g = variants.arch
     const nodeData = [
@@ -573,22 +801,22 @@ export function initHero3D(mount) {
   }
   window.__setHeroVariant = setVariant
 
+  // Zoom targets (replaces old z-position targets)
   const camTargets = {
-    rack:  { x: 0, y: 0.3, z: 8 },
-    logos: { x: 0, y: 0,   z: 8 },
-    arch:  { x: 0, y: 0.5, z: 8 },
+    rack:  { zoom: 1.0 },
+    logos: { zoom: 1.0 },
+    arch:  { zoom: 1.0 },
   }
 
   const mouse = { x: 0, y: 0 }
+  const lookTarget = { x: 0, y: 0 }
 
-  // Camera parallax — window-level, values always in [-1,1]
   const onWindowMouseMove = (e) => {
     mouse.x = (e.clientX / window.innerWidth)  * 2 - 1
     mouse.y = (e.clientY / window.innerHeight) * 2 - 1
   }
 
-  // ── Bay overlay divs (HTML hit detection — reliable, no raycasting) ──────────
-  // Corners of the bay's front face (+Z) in bay local space
+  // Bay overlay divs (HTML hit detection)
   const _bc = [
     new THREE.Vector3(-0.40, -0.36, 0.11),
     new THREE.Vector3( 0.40, -0.36, 0.11),
@@ -650,21 +878,22 @@ export function initHero3D(mount) {
       div.style.width   = (x1 - x0) + 'px'
       div.style.height  = (y1 - y0) + 'px'
 
-      // Store viewport center for tooltip centering
       b.mesh.userData.vpX = rect.left + (x0 + x1) * 0.5
       b.mesh.userData.vpY = rect.top  + y0
     })
   }
 
-  const onMouseEnter = () => { camTargets.rack.z = 5 }
-  const onMouseLeave = () => { camTargets.rack.z = 8; clearBayHovers() }
+  const onMouseEnter = () => { camTargets.rack.zoom = 1.45 }
+  const onMouseLeave = () => { camTargets.rack.zoom = 1.0; clearBayHovers() }
 
   window.addEventListener('mousemove', onWindowMouseMove)
   mount.addEventListener('mouseenter', onMouseEnter)
   mount.addEventListener('mouseleave', onMouseLeave)
 
   const onResize = () => {
-    camera.aspect = w() / h()
+    const asp = w() / h()
+    camera.left   = -D * asp
+    camera.right  =  D * asp
     camera.updateProjectionMatrix()
     renderer.setSize(w(), h())
   }
@@ -676,10 +905,15 @@ export function initHero3D(mount) {
     animId = requestAnimationFrame(tick)
     const t      = clock.getElapsedTime()
     const target = camTargets[activeVariant] || camTargets.rack
-    camera.position.x += ((target.x + mouse.x * 1.2) - camera.position.x) * 0.04
-    camera.position.y += ((target.y - mouse.y * 0.6) - camera.position.y) * 0.04
-    camera.position.z += (target.z - camera.position.z) * 0.04
-    camera.lookAt(0, activeVariant === 'rack' ? 0.3 : 0, 0)
+
+    // Zoom (replaces z-position lerp)
+    camera.zoom += (target.zoom - camera.zoom) * 0.04
+    camera.updateProjectionMatrix()
+
+    // Parallax via lookAt offset — base at (0, 1.5, -1) to center the room
+    lookTarget.x += (mouse.x * 0.4 - lookTarget.x) * 0.04
+    lookTarget.y += (1.5 - mouse.y * 0.3 - lookTarget.y) * 0.04
+    camera.lookAt(lookTarget.x, lookTarget.y, -1)
 
     const active = variants[activeVariant]
     if (active?.userData.update) active.userData.update(t)
