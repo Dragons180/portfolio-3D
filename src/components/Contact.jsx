@@ -1,32 +1,11 @@
-import { useState } from 'react'
+import { useForm, ValidationError } from '@formspree/react'
 
 export function Contact({ t, lang }) {
-  const [form, setForm]   = useState({ name: '', email: '', message: '' })
-  const [status, setStatus] = useState('idle')
+  const [state, handleSubmit] = useForm('xrejepqn')
 
   const labels = lang === 'es'
-    ? { name: 'nombre', email: 'email', message: 'mensaje', send: 'enviar', sending: 'enviando…', ok: '✓ mensaje enviado', error: '✗ algo salió mal, inténtalo de nuevo' }
-    : { name: 'name',   email: 'email', message: 'message', send: 'send',   sending: 'sending…',  ok: '✓ message sent',   error: '✗ something went wrong, try again' }
-
-  function set(k) {
-    return e => setForm(f => ({ ...f, [k]: e.target.value }))
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    setStatus('sending')
-    try {
-      const res = await fetch('https://formspree.io/f/xrejepqn', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify(form),
-      })
-      setStatus(res.ok ? 'ok' : 'error')
-      if (res.ok) setForm({ name: '', email: '', message: '' })
-    } catch {
-      setStatus('error')
-    }
-  }
+    ? { name: 'nombre', email: 'email', message: 'mensaje', send: 'enviar', sending: 'enviando…', ok: '✓ mensaje enviado' }
+    : { name: 'name',   email: 'email', message: 'message', send: 'send',   sending: 'sending…',  ok: '✓ message sent'   }
 
   return (
     <section id="contact">
@@ -38,52 +17,54 @@ export function Contact({ t, lang }) {
       <div className="contact">
         <div className="big" data-anim="reveal-big">{t.contactBig}</div>
 
-        <form className="contact-form" onSubmit={handleSubmit} noValidate>
+        {state.succeeded ? (
+          <p className="cf-feedback ok">{labels.ok}</p>
+        ) : (
+        <form className="contact-form" onSubmit={handleSubmit}>
           <div className="cf-row">
             <label className="cf-label">{labels.name}</label>
             <input
               className="cf-input"
               type="text"
-              value={form.name}
-              onChange={set('name')}
+              name="name"
               required
               autoComplete="name"
             />
+            <ValidationError field="name" errors={state.errors} className="cf-feedback err" />
           </div>
           <div className="cf-row">
             <label className="cf-label">{labels.email}</label>
             <input
               className="cf-input"
               type="email"
-              value={form.email}
-              onChange={set('email')}
+              name="email"
               required
               autoComplete="email"
             />
+            <ValidationError field="email" errors={state.errors} className="cf-feedback err" />
           </div>
           <div className="cf-row">
             <label className="cf-label">{labels.message}</label>
             <textarea
               className="cf-input cf-textarea"
-              value={form.message}
-              onChange={set('message')}
+              name="message"
               required
               rows={5}
             />
+            <ValidationError field="message" errors={state.errors} className="cf-feedback err" />
           </div>
 
           <div className="cf-footer">
-            {status === 'ok'    && <span className="cf-feedback ok">{labels.ok}</span>}
-            {status === 'error' && <span className="cf-feedback err">{labels.error}</span>}
             <button
               className="cf-btn"
               type="submit"
-              disabled={status === 'sending'}
+              disabled={state.submitting}
             >
-              {status === 'sending' ? labels.sending : labels.send} →
+              {state.submitting ? labels.sending : labels.send} →
             </button>
           </div>
         </form>
+        )}
       </div>
 
       <footer>
