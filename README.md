@@ -1,5 +1,7 @@
 # David Redondo — Portfolio
 
+<img width="1900" height="868" alt="image" src="https://github.com/user-attachments/assets/c6134f52-36af-4aab-84ab-3be67ce1907d" />
+
 Portfolio personal de David Redondo, Backend Engineer especializado en arquitecturas de microservicios, Spring Boot y sistemas distribuidos. Construido como una SPA con una escena 3D isométrica interactiva como elemento principal.
 
 ---
