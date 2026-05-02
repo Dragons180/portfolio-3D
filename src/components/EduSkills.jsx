@@ -22,7 +22,7 @@ export function EduSkills({ t, lang }) {
     {
       y:'2019',
       ti: lang === 'es' ? 'Grado en Ingeniería Informática' : 'B.Sc. in Computer Engineering',
-      pl: lang === 'es' ? 'Universidad' : 'University',
+      pl: lang === 'es' ? 'Universidad Autónoma de Madrid' : 'Universidad Autónoma de Madrid',
       logo: UniLogo,
     },
   ]
