@@ -136,4 +136,4 @@ api/
 ## Contacto
 
 **David Redondo** — Backend Engineer  
-[linkedin.com/in/redondoperezdavid](https://www.linkedin.com/in/redondoperezdavid/) · [github.com/Dragons180](https://github.com/Dragons180) · david.redondo@tradeslide.com
+[linkedin.com/in/redondoperezdavid](https://www.linkedin.com/in/redondoperezdavid/) · [github.com/Dragons180](https://github.com/Dragons180) · redondoperezdavid@gmail.com
