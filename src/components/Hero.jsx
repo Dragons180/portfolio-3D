@@ -63,7 +63,6 @@ export function Hero({ t, heroVariant }) {
         <div className="hero-canvas" ref={mountRef}></div>
       </div>
 
-      <div className="scroll-tag">scene · {heroVariant}</div>
     </section>
   )
 }

@@ -20,7 +20,7 @@ export function EduSkills({ t, lang }) {
   const edu = [
     { y:'2026', ti:'AI Experts',                           pl:'DevExpert.io',        logo: DevExpertLogo },
     {
-      y:'2019',
+      y:'2015 — 2020',
       ti: lang === 'es' ? 'Grado en Ingeniería Informática' : 'B.Sc. in Computer Engineering',
       pl: lang === 'es' ? 'Universidad Autónoma de Madrid' : 'Universidad Autónoma de Madrid',
       logo: UniLogo,
@@ -31,14 +31,20 @@ export function EduSkills({ t, lang }) {
     { n:'Comunicación técnica',    l:5 },
     { n:'Code review crítico',     l:5 },
     { n:'Trabajo asíncrono',       l:5 },
-    { n:'Documentación',           l:4 },
+    { n:'Importancia en la documentación', l:4 },
     { n:'Resolución de incidencias', l:5 },
+    { n:'Arquitectura hexagonal',    l:5 },
+    { n:'Domain-Driven Design (DDD)', l:5 },
+    { n:'Prompting / Integración con IA', l:5 },
   ] : [
     { n:'Technical communication', l:5 },
     { n:'Critical code review',    l:5 },
     { n:'Async collaboration',     l:5 },
-    { n:'Documentation',           l:4 },
-    { n:'Incident response',       l:5 },
+    { n:'Importance of documentation', l:4 },
+    { n:'Incident response',        l:5 },
+    { n:'Hexagonal architecture',    l:5 },
+    { n:'Domain-Driven Design (DDD)', l:5 },
+    { n:'Prompting / AI Integration', l:5 },
   ]
 
   return (
@@ -63,15 +69,16 @@ export function EduSkills({ t, lang }) {
         <div data-anim="reveal">
           <div className="es-num">// soft skills</div>
           <div className="es-title">{t.skillsTitle}</div>
-          <div style={{ marginTop: 32 }}>
+          <div className="skills-log" style={{ marginTop: 32 }}>
             {skills.map((s, i) => (
-              <div className="skill-row" key={i}>
-                <span>{s.n}</span>
-                <div className="lvl" data-anim="skill-bar">
-                  {[1,2,3,4,5].map(n => (
-                    <span key={n} className={n <= s.l ? 'f' : ''}></span>
-                  ))}
-                </div>
+              <div className="sl-line" key={i}>
+                <span className="sl-ts">2026-05-03 10:23:45.{String(i * 22 + 1).padStart(3,'0')}</span>
+                <span className="sl-lv sl-info">INFO</span>
+                <span className="sl-dim"> 1 --- </span>
+                <span className="sl-thread">[skill-loader]</span>
+                <span className="sl-logger"> c.d.r.Skills </span>
+                <span className="sl-dim">: </span>
+                <span className="sl-msg">{s.n}</span>
               </div>
             ))}
           </div>

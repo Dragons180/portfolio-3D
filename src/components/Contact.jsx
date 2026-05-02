@@ -86,16 +86,6 @@ export function Contact({ t, lang }) {
         </form>
       </div>
 
-      <div className="cv-band">
-        <a href="#">
-          <div>
-            <div className="lab">// {t.cvLab}</div>
-            <div className="ti">{t.cvTi} ↓</div>
-          </div>
-          <div className="arrow">↘</div>
-        </a>
-      </div>
-
       <footer>
         <span>© 2026 — david redondo</span>
         <div className="marquee">
