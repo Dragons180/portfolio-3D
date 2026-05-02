@@ -30,7 +30,7 @@ export function Hero({ t, heroVariant }) {
 
         <div className="hero-cta">
           <a
-            href="https://www.linkedin.com/in/david-redondo-perez/"
+            href="https://www.linkedin.com/in/redondoperezdavid/"
             target="_blank"
             rel="noopener noreferrer"
             className="hero-cta-btn hero-cta-primary"
