@@ -9,7 +9,7 @@ export function TopBar({ lang, setLang, t }) {
         </a>
         <div className="links">
           <a href="#about">{t.navAbout}</a>
-          <a href="#stack">{t.navStack}</a>
+          <a href="#top" onClick={() => { window.__enterStack?.() }}>{t.navStack}</a>
           <a href="#work">{t.navWork}</a>
           <a href="#contact">{t.navContact}</a>
         </div>

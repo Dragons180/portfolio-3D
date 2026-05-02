@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { COPY } from './constants/copy'
 import { useScrollAnim } from './hooks/useScrollAnim'
+import { useParticles } from './hooks/useParticles'
 import { TopBar } from './components/TopBar'
 import { Hero } from './components/Hero'
 import { About } from './components/About'
@@ -13,6 +14,7 @@ export default function App() {
   const [heroVariant, setHeroVariant] = useState('rack')
 
   useScrollAnim()
+  useParticles()
 
   useEffect(() => {
     const handler = (e) => {
@@ -31,7 +33,7 @@ export default function App() {
       <About t={t} />
       <Work t={t} lang={lang} />
       <EduSkills t={t} lang={lang} />
-      <Contact t={t} />
+      <Contact t={t} lang={lang} />
     </>
   )
 }
